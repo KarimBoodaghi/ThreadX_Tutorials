@@ -60,9 +60,9 @@ static VOID blink_thread_entry(ULONG thread_input);
   */
 UINT App_ThreadX_Init(VOID *memory_ptr)
 {
-	UINT ret = TX_SUCCESS;
+  UINT ret = TX_SUCCESS;
 
-	/* USER CODE BEGIN App_ThreadX_MEM_POOL */
+  /* USER CODE BEGIN App_ThreadX_MEM_POOL */
 	CHAR *stack_ptr = TX_NULL;
 	TX_BYTE_POOL *byte_pool = (TX_BYTE_POOL *)memory_ptr;
 
