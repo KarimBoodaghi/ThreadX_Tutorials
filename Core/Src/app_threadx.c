@@ -29,13 +29,16 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-#define BLINK_STACK_SIZE    2048
-#define BLINK_PRIORITY      10
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define BLINK_RED_STACK_SIZE    2048
+#define BLINK_RED_PRIORITY      10
 
+#define BLINK_GREEN_STACK_SIZE    2048
+#define BLINK_GREEN_PRIORITY      10
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -45,12 +48,14 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
-static TX_THREAD blink_thread;
+static TX_THREAD blink_red_thread;
+static TX_THREAD blink_green_thread;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN PFP */
-static VOID blink_thread_entry(ULONG thread_input);
+static VOID blink_red_thread_entry(ULONG thread_input);
+static VOID blink_green_thread_entry(ULONG thread_input);
 /* USER CODE END PFP */
 
 /**
@@ -66,14 +71,30 @@ UINT App_ThreadX_Init(VOID *memory_ptr)
 	CHAR *stack_ptr = TX_NULL;
 	TX_BYTE_POOL *byte_pool = (TX_BYTE_POOL *)memory_ptr;
 
-	if (tx_byte_allocate(byte_pool, (VOID **)&stack_ptr, BLINK_STACK_SIZE, TX_NO_WAIT) != TX_SUCCESS)
+
+	/*------------------- Red -------------------*/
+	if (tx_byte_allocate(byte_pool, (VOID **)&stack_ptr, BLINK_RED_STACK_SIZE, TX_NO_WAIT) != TX_SUCCESS)
 	{
 		return TX_POOL_ERROR;
 	}
 
-	if (tx_thread_create(&blink_thread, "blink", blink_thread_entry, 0,
-			stack_ptr, BLINK_STACK_SIZE,
-			BLINK_PRIORITY, BLINK_PRIORITY,
+	if (tx_thread_create(&blink_red_thread, "blink_red", blink_red_thread_entry, 0,
+			stack_ptr, BLINK_RED_STACK_SIZE,
+			BLINK_RED_PRIORITY, BLINK_RED_PRIORITY,
+			TX_NO_TIME_SLICE, TX_AUTO_START) != TX_SUCCESS)
+	{
+		return TX_THREAD_ERROR;
+	}
+
+	/*------------------- Green -------------------*/
+	if (tx_byte_allocate(byte_pool, (VOID **)&stack_ptr, BLINK_GREEN_STACK_SIZE, TX_NO_WAIT) != TX_SUCCESS)
+	{
+		return TX_POOL_ERROR;
+	}
+
+	if (tx_thread_create(&blink_green_thread, "blink_green", blink_green_thread_entry, 0,
+			stack_ptr, BLINK_GREEN_STACK_SIZE,
+			BLINK_GREEN_PRIORITY, BLINK_GREEN_PRIORITY,
 			TX_NO_TIME_SLICE, TX_AUTO_START) != TX_SUCCESS)
 	{
 		return TX_THREAD_ERROR;
@@ -105,15 +126,27 @@ void MX_ThreadX_Init(void)
 }
 
 /* USER CODE BEGIN 1 */
-static VOID blink_thread_entry(ULONG thread_input)
+static VOID blink_red_thread_entry(ULONG thread_input)
 {
 	(void)thread_input;
 
 	while (1)
 	{
 		HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_8);   /* Red LED */
-		printf("ThreadX tick %lu\r\n", (unsigned long)tx_time_get());
+		printf("ThreadX Red tick %lu\r\n", (unsigned long)tx_time_get());
 		tx_thread_sleep(50);                     /* 50 ticks = 500 ms at 100 ticks/s */
+	}
+}
+
+static VOID blink_green_thread_entry(ULONG thread_input)
+{
+	(void)thread_input;
+
+	while (1)
+	{
+		HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_9);   /* Green LED */
+		printf("ThreadX Green tick %lu\r\n", (unsigned long)tx_time_get());
+		tx_thread_sleep(100);                    /* 100 ticks = 1000 ms */
 	}
 }
 /* USER CODE END 1 */
