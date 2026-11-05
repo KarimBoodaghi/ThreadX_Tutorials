@@ -96,7 +96,7 @@ int main(void)
   MX_ICACHE_Init();
   MX_UART7_Init();
   /* USER CODE BEGIN 2 */
-  printf("Hello, bare metal!\r\n");
+
   /* USER CODE END 2 */
 
   MX_ThreadX_Init();
