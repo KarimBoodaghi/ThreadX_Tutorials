@@ -25,6 +25,7 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include "main.h"
+#include <stdarg.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -72,6 +73,8 @@
 
 static TX_THREAD printf_thread_1;
 static TX_THREAD printf_thread_2;
+
+TX_MUTEX print_mutex;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -175,7 +178,12 @@ UINT App_ThreadX_Init(VOID *memory_ptr)
 //		return TX_THREAD_ERROR;
 //	}
 
-
+	/*------------------- Mutex for printfs -------------------*/
+	/* TX_INHERIT enables priority inheritance */
+	if (tx_mutex_create(&print_mutex, "print", TX_INHERIT) != TX_SUCCESS)
+	{
+	    return TX_MUTEX_ERROR;
+	}
 
 	/*------------------- printf1 -------------------*/
 	if (tx_byte_allocate(byte_pool, (VOID **)&stack_ptr, PRINTF_1_STACK_SIZE, TX_NO_WAIT) != TX_SUCCESS)
@@ -314,6 +322,19 @@ void MX_ThreadX_Init(void)
 //    }
 //}
 
+void safe_printf(const char *fmt, ...)
+{
+	va_list args;
+
+	tx_mutex_get(&print_mutex, TX_WAIT_FOREVER);
+
+	va_start(args, fmt);
+	vprintf(fmt, args);
+	va_end(args);
+
+	tx_mutex_put(&print_mutex);
+}
+
 /*------------------- printf1 -------------------*/
 static VOID printf_thread_entry(ULONG thread_input)
 {
@@ -322,7 +343,7 @@ static VOID printf_thread_entry(ULONG thread_input)
     while (1)
     {
         /* A long line so a time slice can expire in the middle of it */
-        printf("Thread %lu line %lu: 0123456789 0123456789 0123456789 0123456789\r\n",
+    	safe_printf("Thread %lu line %lu: 0123456789 0123456789 0123456789 0123456789\r\n",
                thread_input, n++);
     }
 }
