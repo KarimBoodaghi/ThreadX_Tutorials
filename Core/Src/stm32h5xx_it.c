@@ -231,13 +231,48 @@ void TIM6_IRQHandler(void)
 }
 
 /* USER CODE BEGIN 1 */
-extern TX_SEMAPHORE button_sem;
+//extern TX_SEMAPHORE button_sem;
+
+//void HAL_GPIO_EXTI_Falling_Callback(uint16_t GPIO_Pin)
+//{
+//    (void)GPIO_Pin;
+//
+//    /* Only a quick, non-blocking call is allowed inside an ISR */
+//    tx_semaphore_put(&button_sem);
+//}
+
+/* USER CODE BEGIN 1 */
+extern TX_QUEUE key_queue;
 
 void HAL_GPIO_EXTI_Falling_Callback(uint16_t GPIO_Pin)
 {
-    (void)GPIO_Pin;
+    ULONG key_id = 0;
 
-    /* Only a quick, non-blocking call is allowed inside an ISR */
-    tx_semaphore_put(&button_sem);
+    /* Map the interrupt pin to a key number */
+    switch (GPIO_Pin)
+    {
+        case Key1_Pin:
+            key_id = 1;
+            break;
+
+        case Key2_Pin:
+            key_id = 2;
+            break;
+
+        case Key3_Pin:
+            key_id = 3;
+            break;
+
+        case Key4_Pin:
+            key_id = 4;
+            break;
+
+        default:
+            return;
+    }
+
+    /* An ISR must never wait, so use TX_NO_WAIT */
+    tx_queue_send(&key_queue, &key_id, TX_NO_WAIT);
 }
+
 /* USER CODE END 1 */

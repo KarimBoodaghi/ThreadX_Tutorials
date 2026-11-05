@@ -40,8 +40,12 @@
 //#define BLINK_GREEN_STACK_SIZE    2048
 //#define BLINK_GREEN_PRIORITY      10
 
-#define BUTTON_STACK_SIZE    2048
-#define BUTTON_PRIORITY      10
+//#define BUTTON_STACK_SIZE    2048
+//#define BUTTON_PRIORITY      10
+
+#define KEY_STACK_SIZE       2048
+#define KEY_PRIORITY         10
+#define KEY_QUEUE_MSG_COUNT  8
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -54,15 +58,19 @@
 //static TX_THREAD blink_red_thread;
 //static TX_THREAD blink_green_thread;
 
-TX_SEMAPHORE button_sem;
-static TX_THREAD button_thread;
+//TX_SEMAPHORE button_sem;
+//static TX_THREAD button_thread;
+
+TX_QUEUE key_queue;
+static TX_THREAD key_thread;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN PFP */
 //static VOID blink_red_thread_entry(ULONG thread_input);
 //static VOID blink_green_thread_entry(ULONG thread_input);
-static VOID button_thread_entry(ULONG thread_input);
+//static VOID button_thread_entry(ULONG thread_input);
+static VOID key_thread_entry(ULONG thread_input);
 /* USER CODE END PFP */
 
 /**
@@ -107,21 +115,51 @@ UINT App_ThreadX_Init(VOID *memory_ptr)
 //		return TX_THREAD_ERROR;
 //	}
 
-	/*------------------- Button Semaphore -------------------*/
-	if (tx_semaphore_create(&button_sem, "button", 0) != TX_SUCCESS)
-	{
-	    return TX_SEMAPHORE_ERROR;
-	}
+//	/*------------------- Button Semaphore -------------------*/
+//	if (tx_semaphore_create(&button_sem, "button", 0) != TX_SUCCESS)
+//	{
+//	    return TX_SEMAPHORE_ERROR;
+//	}
 
 	/*------------------- Button -------------------*/
-	if (tx_byte_allocate(byte_pool, (VOID **)&stack_ptr, BUTTON_STACK_SIZE, TX_NO_WAIT) != TX_SUCCESS)
+//	if (tx_byte_allocate(byte_pool, (VOID **)&stack_ptr, BUTTON_STACK_SIZE, TX_NO_WAIT) != TX_SUCCESS)
+//	{
+//		return TX_POOL_ERROR;
+//	}
+//
+//	if (tx_thread_create(&button_thread, "button", button_thread_entry, 0,
+//			stack_ptr, BUTTON_STACK_SIZE,
+//			BUTTON_PRIORITY, BUTTON_PRIORITY,
+//			TX_NO_TIME_SLICE, TX_AUTO_START) != TX_SUCCESS)
+//	{
+//		return TX_THREAD_ERROR;
+//	}
+
+	/*------------------- Key Queue -------------------*/
+	VOID *queue_ptr = TX_NULL;
+
+	/* Allocate storage for the queue messages */
+	if (tx_byte_allocate(byte_pool, &queue_ptr,
+	                     KEY_QUEUE_MSG_COUNT * sizeof(ULONG), TX_NO_WAIT) != TX_SUCCESS)
+	{
+	    return TX_POOL_ERROR;
+	}
+
+	if (tx_queue_create(&key_queue, "key_queue", TX_1_ULONG, queue_ptr,
+	                    KEY_QUEUE_MSG_COUNT * sizeof(ULONG)) != TX_SUCCESS)
+	{
+	    return TX_QUEUE_ERROR;
+	}
+
+	/*------------------- Key -------------------*/
+	if (tx_byte_allocate(byte_pool, (VOID **)&stack_ptr, KEY_STACK_SIZE, TX_NO_WAIT) != TX_SUCCESS)
 	{
 		return TX_POOL_ERROR;
 	}
 
-	if (tx_thread_create(&button_thread, "button_red", button_thread_entry, 0,
-			stack_ptr, BUTTON_STACK_SIZE,
-			BUTTON_PRIORITY, BUTTON_PRIORITY,
+	if (tx_thread_create(&key_thread, "key", key_thread_entry, 0,
+			stack_ptr, KEY_STACK_SIZE,
+			KEY_PRIORITY, KEY_PRIORITY,
 			TX_NO_TIME_SLICE, TX_AUTO_START) != TX_SUCCESS)
 	{
 		return TX_THREAD_ERROR;
@@ -180,22 +218,59 @@ void MX_ThreadX_Init(void)
 //}
 
 /*------------------- Button -------------------*/
-static VOID button_thread_entry(ULONG thread_input)
+//static VOID button_thread_entry(ULONG thread_input)
+//{
+//    ULONG count = 0;
+//
+//    (void)thread_input;
+//
+//    while (1)
+//    {
+//        /* Sleep here until the ISR gives the semaphore */
+//        tx_semaphore_get(&button_sem, TX_WAIT_FOREVER);
+//
+//        count++;
+//        HAL_GPIO_TogglePin(LED_B_GPIO_Port, LED_B_Pin);
+//        printf("Button press %lu\r\n", count);
+//
+//        tx_thread_sleep(5);   /* Crude debounce: 50 ms */
+//    }
+//}
+
+/*------------------- Key -------------------*/
+static VOID key_thread_entry(ULONG thread_input)
 {
-    ULONG count = 0;
+    ULONG key_id;
 
     (void)thread_input;
 
     while (1)
     {
-        /* Sleep here until the ISR gives the semaphore */
-        tx_semaphore_get(&button_sem, TX_WAIT_FOREVER);
+        /* Sleep until the ISR sends a key number */
+        if (tx_queue_receive(&key_queue, &key_id, TX_WAIT_FOREVER) == TX_SUCCESS)
+        {
+            printf("Key %lu pressed\r\n", key_id);
 
-        count++;
-        HAL_GPIO_TogglePin(LED_B_GPIO_Port, LED_B_Pin);
-        printf("Button press %lu\r\n", count);
+            switch (key_id)
+            {
+                case 1:
+                    HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
+                    break;
 
-        tx_thread_sleep(5);   /* Crude debounce: 50 ms */
+                case 2:
+                    HAL_GPIO_TogglePin(LED_G_GPIO_Port, LED_G_Pin);
+                    break;
+
+                case 3:
+                    HAL_GPIO_TogglePin(LED_B_GPIO_Port, LED_B_Pin);
+                    break;
+
+                default:
+                    break;
+            }
+
+            tx_thread_sleep(5);   /* Crude debounce: 50 ms */
+        }
     }
 }
 
