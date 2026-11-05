@@ -43,9 +43,15 @@
 //#define BUTTON_STACK_SIZE    2048
 //#define BUTTON_PRIORITY      10
 
-#define KEY_STACK_SIZE       2048
-#define KEY_PRIORITY         10
-#define KEY_QUEUE_MSG_COUNT  8
+//#define KEY_STACK_SIZE       2048
+//#define KEY_PRIORITY         10
+//#define KEY_QUEUE_MSG_COUNT  8
+
+#define PRINTF_1_STACK_SIZE       2048
+#define PRINTF_1_PRIORITY         10
+
+#define PRINTF_2_STACK_SIZE       2048
+#define PRINTF_2_PRIORITY         10
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -61,8 +67,11 @@
 //TX_SEMAPHORE button_sem;
 //static TX_THREAD button_thread;
 
-TX_QUEUE key_queue;
-static TX_THREAD key_thread;
+//TX_QUEUE key_queue;
+//static TX_THREAD key_thread;
+
+static TX_THREAD printf_thread_1;
+static TX_THREAD printf_thread_2;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -70,7 +79,8 @@ static TX_THREAD key_thread;
 //static VOID blink_red_thread_entry(ULONG thread_input);
 //static VOID blink_green_thread_entry(ULONG thread_input);
 //static VOID button_thread_entry(ULONG thread_input);
-static VOID key_thread_entry(ULONG thread_input);
+//static VOID key_thread_entry(ULONG thread_input);
+static VOID printf_thread_entry(ULONG thread_input); /* Use this for both printf threads */
 /* USER CODE END PFP */
 
 /**
@@ -136,31 +146,61 @@ UINT App_ThreadX_Init(VOID *memory_ptr)
 //	}
 
 	/*------------------- Key Queue -------------------*/
-	VOID *queue_ptr = TX_NULL;
+//	VOID *queue_ptr = TX_NULL;
+//
+//	/* Allocate storage for the queue messages */
+//	if (tx_byte_allocate(byte_pool, &queue_ptr,
+//	                     KEY_QUEUE_MSG_COUNT * sizeof(ULONG), TX_NO_WAIT) != TX_SUCCESS)
+//	{
+//	    return TX_POOL_ERROR;
+//	}
+//
+//	if (tx_queue_create(&key_queue, "key_queue", TX_1_ULONG, queue_ptr,
+//	                    KEY_QUEUE_MSG_COUNT * sizeof(ULONG)) != TX_SUCCESS)
+//	{
+//	    return TX_QUEUE_ERROR;
+//	}
+//
+//	/*------------------- Key -------------------*/
+//	if (tx_byte_allocate(byte_pool, (VOID **)&stack_ptr, KEY_STACK_SIZE, TX_NO_WAIT) != TX_SUCCESS)
+//	{
+//		return TX_POOL_ERROR;
+//	}
+//
+//	if (tx_thread_create(&key_thread, "key", key_thread_entry, 0,
+//			stack_ptr, KEY_STACK_SIZE,
+//			KEY_PRIORITY, KEY_PRIORITY,
+//			TX_NO_TIME_SLICE, TX_AUTO_START) != TX_SUCCESS)
+//	{
+//		return TX_THREAD_ERROR;
+//	}
 
-	/* Allocate storage for the queue messages */
-	if (tx_byte_allocate(byte_pool, &queue_ptr,
-	                     KEY_QUEUE_MSG_COUNT * sizeof(ULONG), TX_NO_WAIT) != TX_SUCCESS)
-	{
-	    return TX_POOL_ERROR;
-	}
 
-	if (tx_queue_create(&key_queue, "key_queue", TX_1_ULONG, queue_ptr,
-	                    KEY_QUEUE_MSG_COUNT * sizeof(ULONG)) != TX_SUCCESS)
-	{
-	    return TX_QUEUE_ERROR;
-	}
 
-	/*------------------- Key -------------------*/
-	if (tx_byte_allocate(byte_pool, (VOID **)&stack_ptr, KEY_STACK_SIZE, TX_NO_WAIT) != TX_SUCCESS)
+	/*------------------- printf1 -------------------*/
+	if (tx_byte_allocate(byte_pool, (VOID **)&stack_ptr, PRINTF_1_STACK_SIZE, TX_NO_WAIT) != TX_SUCCESS)
 	{
 		return TX_POOL_ERROR;
 	}
 
-	if (tx_thread_create(&key_thread, "key", key_thread_entry, 0,
-			stack_ptr, KEY_STACK_SIZE,
-			KEY_PRIORITY, KEY_PRIORITY,
-			TX_NO_TIME_SLICE, TX_AUTO_START) != TX_SUCCESS)
+	if (tx_thread_create(&printf_thread_1, "printf_1", printf_thread_entry, 1,
+			stack_ptr, PRINTF_1_STACK_SIZE,
+			PRINTF_1_PRIORITY, PRINTF_1_PRIORITY,
+			1, TX_AUTO_START) != TX_SUCCESS)
+	{
+		return TX_THREAD_ERROR;
+	}
+
+	/*------------------- printf2 -------------------*/
+	if (tx_byte_allocate(byte_pool, (VOID **)&stack_ptr, PRINTF_2_STACK_SIZE, TX_NO_WAIT) != TX_SUCCESS)
+	{
+		return TX_POOL_ERROR;
+	}
+
+	if (tx_thread_create(&printf_thread_2, "printf_2", printf_thread_entry, 2,
+			stack_ptr, PRINTF_2_STACK_SIZE,
+			PRINTF_2_PRIORITY, PRINTF_2_PRIORITY,
+			1, TX_AUTO_START) != TX_SUCCESS)
 	{
 		return TX_THREAD_ERROR;
 	}
@@ -238,40 +278,52 @@ void MX_ThreadX_Init(void)
 //}
 
 /*------------------- Key -------------------*/
-static VOID key_thread_entry(ULONG thread_input)
-{
-    ULONG key_id;
+//static VOID key_thread_entry(ULONG thread_input)
+//{
+//    ULONG key_id;
+//
+//    (void)thread_input;
+//
+//    while (1)
+//    {
+//        /* Sleep until the ISR sends a key number */
+//        if (tx_queue_receive(&key_queue, &key_id, TX_WAIT_FOREVER) == TX_SUCCESS)
+//        {
+//            printf("Key %lu pressed\r\n", key_id);
+//
+//            switch (key_id)
+//            {
+//                case 1:
+//                    HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
+//                    break;
+//
+//                case 2:
+//                    HAL_GPIO_TogglePin(LED_G_GPIO_Port, LED_G_Pin);
+//                    break;
+//
+//                case 3:
+//                    HAL_GPIO_TogglePin(LED_B_GPIO_Port, LED_B_Pin);
+//                    break;
+//
+//                default:
+//                    break;
+//            }
+//
+//            tx_thread_sleep(5);   /* Crude debounce: 50 ms */
+//        }
+//    }
+//}
 
-    (void)thread_input;
+/*------------------- printf1 -------------------*/
+static VOID printf_thread_entry(ULONG thread_input)
+{
+    ULONG n = 0;
 
     while (1)
     {
-        /* Sleep until the ISR sends a key number */
-        if (tx_queue_receive(&key_queue, &key_id, TX_WAIT_FOREVER) == TX_SUCCESS)
-        {
-            printf("Key %lu pressed\r\n", key_id);
-
-            switch (key_id)
-            {
-                case 1:
-                    HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
-                    break;
-
-                case 2:
-                    HAL_GPIO_TogglePin(LED_G_GPIO_Port, LED_G_Pin);
-                    break;
-
-                case 3:
-                    HAL_GPIO_TogglePin(LED_B_GPIO_Port, LED_B_Pin);
-                    break;
-
-                default:
-                    break;
-            }
-
-            tx_thread_sleep(5);   /* Crude debounce: 50 ms */
-        }
+        /* A long line so a time slice can expire in the middle of it */
+        printf("Thread %lu line %lu: 0123456789 0123456789 0123456789 0123456789\r\n",
+               thread_input, n++);
     }
 }
-
 /* USER CODE END 1 */
