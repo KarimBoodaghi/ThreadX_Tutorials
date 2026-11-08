@@ -48,11 +48,17 @@
 //#define KEY_PRIORITY         10
 //#define KEY_QUEUE_MSG_COUNT  8
 
-#define PRINTF_1_STACK_SIZE       2048
-#define PRINTF_1_PRIORITY         10
+//#define PRINTF_1_STACK_SIZE       2048
+//#define PRINTF_1_PRIORITY         10
+//
+//#define PRINTF_2_STACK_SIZE       2048
+//#define PRINTF_2_PRIORITY         10
 
-#define PRINTF_2_STACK_SIZE       2048
-#define PRINTF_2_PRIORITY         10
+#define THREAD_1_STACK_SIZE   2048
+#define THREAD_1_PRIORITY     10
+
+#define THREAD_2_STACK_SIZE   2048
+#define THREAD_2_PRIORITY     11
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -71,10 +77,15 @@
 //TX_QUEUE key_queue;
 //static TX_THREAD key_thread;
 
-static TX_THREAD printf_thread_1;
-static TX_THREAD printf_thread_2;
+//static TX_THREAD printf_thread_1;
+//static TX_THREAD printf_thread_2;
+//
+//TX_MUTEX print_mutex;
 
-TX_MUTEX print_mutex;
+TX_EVENT_FLAGS_GROUP key_events;
+TX_THREAD thread_1;
+TX_THREAD thread_2;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -83,7 +94,9 @@ TX_MUTEX print_mutex;
 //static VOID blink_green_thread_entry(ULONG thread_input);
 //static VOID button_thread_entry(ULONG thread_input);
 //static VOID key_thread_entry(ULONG thread_input);
-static VOID printf_thread_entry(ULONG thread_input); /* Use this for both printf threads */
+//static VOID printf_thread_entry(ULONG thread_input); /* Use this for both printf threads */
+static VOID thread_1_entry(ULONG thread_input);
+static VOID thread_2_entry(ULONG thread_input);
 /* USER CODE END PFP */
 
 /**
@@ -178,37 +191,71 @@ UINT App_ThreadX_Init(VOID *memory_ptr)
 //		return TX_THREAD_ERROR;
 //	}
 
-	/*------------------- Mutex for printfs -------------------*/
-	/* TX_INHERIT enables priority inheritance */
-	if (tx_mutex_create(&print_mutex, "print", TX_INHERIT) != TX_SUCCESS)
+//	/*------------------- Mutex for printfs -------------------*/
+//	/* TX_INHERIT enables priority inheritance */
+//	if (tx_mutex_create(&print_mutex, "print", TX_INHERIT) != TX_SUCCESS)
+//	{
+//	    return TX_MUTEX_ERROR;
+//	}
+//
+//	/*------------------- printf1 -------------------*/
+//	if (tx_byte_allocate(byte_pool, (VOID **)&stack_ptr, PRINTF_1_STACK_SIZE, TX_NO_WAIT) != TX_SUCCESS)
+//	{
+//		return TX_POOL_ERROR;
+//	}
+//
+//	if (tx_thread_create(&printf_thread_1, "printf_1", printf_thread_entry, 1,
+//			stack_ptr, PRINTF_1_STACK_SIZE,
+//			PRINTF_1_PRIORITY, PRINTF_1_PRIORITY,
+//			1, TX_AUTO_START) != TX_SUCCESS)
+//	{
+//		return TX_THREAD_ERROR;
+//	}
+//
+//	/*------------------- printf2 -------------------*/
+//	if (tx_byte_allocate(byte_pool, (VOID **)&stack_ptr, PRINTF_2_STACK_SIZE, TX_NO_WAIT) != TX_SUCCESS)
+//	{
+//		return TX_POOL_ERROR;
+//	}
+//
+//	if (tx_thread_create(&printf_thread_2, "printf_2", printf_thread_entry, 2,
+//			stack_ptr, PRINTF_2_STACK_SIZE,
+//			PRINTF_2_PRIORITY, PRINTF_2_PRIORITY,
+//			1, TX_AUTO_START) != TX_SUCCESS)
+//	{
+//		return TX_THREAD_ERROR;
+//	}
+
+	/*------------------- Event Flags -------------------*/
+	if (tx_event_flags_create(&key_events, "key_events") != TX_SUCCESS)
 	{
-	    return TX_MUTEX_ERROR;
+	    return TX_GROUP_ERROR;
 	}
 
-	/*------------------- printf1 -------------------*/
-	if (tx_byte_allocate(byte_pool, (VOID **)&stack_ptr, PRINTF_1_STACK_SIZE, TX_NO_WAIT) != TX_SUCCESS)
+	/* Thread 1 */
+	if (tx_byte_allocate(byte_pool, (VOID **)&stack_ptr, THREAD_1_STACK_SIZE, TX_NO_WAIT) != TX_SUCCESS)
 	{
 		return TX_POOL_ERROR;
 	}
 
-	if (tx_thread_create(&printf_thread_1, "printf_1", printf_thread_entry, 1,
-			stack_ptr, PRINTF_1_STACK_SIZE,
-			PRINTF_1_PRIORITY, PRINTF_1_PRIORITY,
-			1, TX_AUTO_START) != TX_SUCCESS)
+	if (tx_thread_create(&thread_1, "thread_1", thread_1_entry, 0,
+			stack_ptr, THREAD_1_STACK_SIZE,
+			THREAD_1_PRIORITY, THREAD_1_PRIORITY,
+			TX_NO_TIME_SLICE, TX_AUTO_START) != TX_SUCCESS)
 	{
 		return TX_THREAD_ERROR;
 	}
 
-	/*------------------- printf2 -------------------*/
-	if (tx_byte_allocate(byte_pool, (VOID **)&stack_ptr, PRINTF_2_STACK_SIZE, TX_NO_WAIT) != TX_SUCCESS)
+	/* Thread 2 */
+	if (tx_byte_allocate(byte_pool, (VOID **)&stack_ptr, THREAD_2_STACK_SIZE, TX_NO_WAIT) != TX_SUCCESS)
 	{
 		return TX_POOL_ERROR;
 	}
 
-	if (tx_thread_create(&printf_thread_2, "printf_2", printf_thread_entry, 2,
-			stack_ptr, PRINTF_2_STACK_SIZE,
-			PRINTF_2_PRIORITY, PRINTF_2_PRIORITY,
-			1, TX_AUTO_START) != TX_SUCCESS)
+	if (tx_thread_create(&thread_2, "thread_2", thread_2_entry, 0,
+			stack_ptr, THREAD_2_STACK_SIZE,
+			THREAD_2_PRIORITY, THREAD_2_PRIORITY,
+			TX_NO_TIME_SLICE, TX_AUTO_START) != TX_SUCCESS)
 	{
 		return TX_THREAD_ERROR;
 	}
@@ -322,29 +369,77 @@ void MX_ThreadX_Init(void)
 //    }
 //}
 
-void safe_printf(const char *fmt, ...)
+//void safe_printf(const char *fmt, ...)
+//{
+//	va_list args;
+//
+//	tx_mutex_get(&print_mutex, TX_WAIT_FOREVER);
+//
+//	va_start(args, fmt);
+//	vprintf(fmt, args);
+//	va_end(args);
+//
+//	tx_mutex_put(&print_mutex);
+//}
+//
+///*------------------- printf1 -------------------*/
+//static VOID printf_thread_entry(ULONG thread_input)
+//{
+//    ULONG n = 0;
+//
+//    while (1)
+//    {
+//        /* A long line so a time slice can expire in the middle of it */
+//    	safe_printf("Thread %lu line %lu: 0123456789 0123456789 0123456789 0123456789\r\n",
+//               thread_input, n++);
+//    }
+//}
+
+/*------------------- Event Flags -------------------*/
+static VOID thread_1_entry(ULONG thread_input)
 {
-	va_list args;
+	ULONG actual_flags;
 
-	tx_mutex_get(&print_mutex, TX_WAIT_FOREVER);
+	(void)thread_input;
 
-	va_start(args, fmt);
-	vprintf(fmt, args);
-	va_end(args);
+	while (1)
+	{
+		/* Wake up when Key1 OR Key2 is set, then clear those flags */
+		if (tx_event_flags_get(&key_events, KEY1_EVENT | KEY2_EVENT,
+				TX_OR_CLEAR, &actual_flags,
+				TX_WAIT_FOREVER) == TX_SUCCESS)
+		{
+			if (actual_flags & KEY1_EVENT)
+			{
+				printf("Key1 event\r\n");
+			}
 
-	tx_mutex_put(&print_mutex);
+			if (actual_flags & KEY2_EVENT)
+			{
+				printf("Key2 event\r\n");
+			}
+
+			HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
+		}
+	}
 }
 
-/*------------------- printf1 -------------------*/
-static VOID printf_thread_entry(ULONG thread_input)
+static VOID thread_2_entry(ULONG thread_input)
 {
-    ULONG n = 0;
+	ULONG actual_flags;
 
-    while (1)
-    {
-        /* A long line so a time slice can expire in the middle of it */
-    	safe_printf("Thread %lu line %lu: 0123456789 0123456789 0123456789 0123456789\r\n",
-               thread_input, n++);
-    }
+	(void)thread_input;
+
+	while (1)
+	{
+		/* Wake up only when Key3 AND Key4 are both set */
+		if (tx_event_flags_get(&key_events, KEY3_EVENT | KEY4_EVENT,
+				TX_AND_CLEAR, &actual_flags,
+				TX_WAIT_FOREVER) == TX_SUCCESS)
+		{
+			printf("Key3 + Key4 chord\r\n");
+			HAL_GPIO_TogglePin(LED_G_GPIO_Port, LED_G_Pin);
+		}
+	}
 }
 /* USER CODE END 1 */

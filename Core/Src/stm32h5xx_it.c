@@ -242,37 +242,36 @@ void TIM6_IRQHandler(void)
 //}
 
 /* USER CODE BEGIN 1 */
-//extern TX_QUEUE key_queue;
-//
-//void HAL_GPIO_EXTI_Falling_Callback(uint16_t GPIO_Pin)
-//{
-//    ULONG key_id = 0;
-//
-//    /* Map the interrupt pin to a key number */
-//    switch (GPIO_Pin)
-//    {
-//        case Key1_Pin:
-//            key_id = 1;
-//            break;
-//
-//        case Key2_Pin:
-//            key_id = 2;
-//            break;
-//
-//        case Key3_Pin:
-//            key_id = 3;
-//            break;
-//
-//        case Key4_Pin:
-//            key_id = 4;
-//            break;
-//
-//        default:
-//            return;
-//    }
-//
-//    /* An ISR must never wait, so use TX_NO_WAIT */
-//    tx_queue_send(&key_queue, &key_id, TX_NO_WAIT);
-//}
+extern TX_EVENT_FLAGS_GROUP key_events;
+
+void HAL_GPIO_EXTI_Falling_Callback(uint16_t GPIO_Pin)
+{
+	ULONG flag = 0;
+
+	switch (GPIO_Pin)
+	{
+	case Key1_Pin:
+		flag = KEY1_EVENT;
+		break;
+
+	case Key2_Pin:
+		flag = KEY2_EVENT;
+		break;
+
+	case Key3_Pin:
+		flag = KEY3_EVENT;
+		break;
+
+	case Key4_Pin:
+		flag = KEY4_EVENT;
+		break;
+
+	default:
+		return;
+	}
+
+	/* Setting flags from an ISR is allowed and never blocks */
+	tx_event_flags_set(&key_events, flag, TX_OR);
+}
 
 /* USER CODE END 1 */
