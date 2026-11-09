@@ -49,6 +49,12 @@ extern "C" {
 #define LED_PERIOD_STEP_MS       100
 #define LED_PERIOD_MIN_MS        100
 #define LED_PERIOD_MAX_MS        2000
+
+#define BLINK_MODE_R    	0
+#define BLINK_MODE_G		1
+#define BLINK_MODE_B		2
+#define BLINK_MODE_CIRCULAR	3
+
 /* USER CODE END EC */
 
 /* Private defines -----------------------------------------------------------*/

@@ -123,6 +123,8 @@ static VOID thread_led_entry(ULONG thread_input)
 	UINT status;
 	ULONG paused = 0;
 	ULONG wait_ticks;
+	UINT blink_mode = BLINK_MODE_R;
+	UINT color_turn = 0;
 
 	(void)thread_input;
 
@@ -136,13 +138,42 @@ static VOID thread_led_entry(ULONG thread_input)
 
 	    /* Wait for Key1, Key2 and Key3, so Key3 can also resume */
 	    status = tx_event_flags_get(&key_events,
-	                                KEY1_EVENT | KEY2_EVENT | KEY3_EVENT,
+	                                KEY1_EVENT | KEY2_EVENT | KEY3_EVENT | KEY4_EVENT,
 	                                TX_OR_CLEAR, &actual_flags, wait_ticks);
 
 		if (status == TX_NO_EVENTS)
 		{
 			/* Timeout: the period elapsed */
-			HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
+			if(blink_mode == BLINK_MODE_R)
+				HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
+			else if(blink_mode == BLINK_MODE_G)
+				HAL_GPIO_TogglePin(LED_G_GPIO_Port, LED_G_Pin);
+			else if(blink_mode == BLINK_MODE_B)
+				HAL_GPIO_TogglePin(LED_B_GPIO_Port, LED_B_Pin);
+			else if(blink_mode == BLINK_MODE_CIRCULAR)
+			{
+				switch (color_turn)
+				{
+				case 0:
+		        	HAL_GPIO_WritePin(LED_R_GPIO_Port, LED_R_Pin, GPIO_PIN_RESET);
+		        	HAL_GPIO_WritePin(LED_G_GPIO_Port, LED_G_Pin, GPIO_PIN_SET);
+		        	HAL_GPIO_WritePin(LED_B_GPIO_Port, LED_B_Pin, GPIO_PIN_SET);
+		        	color_turn = 1;
+					break;
+				case 1:
+		        	HAL_GPIO_WritePin(LED_R_GPIO_Port, LED_R_Pin, GPIO_PIN_SET);
+		        	HAL_GPIO_WritePin(LED_G_GPIO_Port, LED_G_Pin, GPIO_PIN_RESET);
+		        	HAL_GPIO_WritePin(LED_B_GPIO_Port, LED_B_Pin, GPIO_PIN_SET);
+		        	color_turn = 2;
+					break;
+				case 2:
+		        	HAL_GPIO_WritePin(LED_R_GPIO_Port, LED_R_Pin, GPIO_PIN_SET);
+		        	HAL_GPIO_WritePin(LED_G_GPIO_Port, LED_G_Pin, GPIO_PIN_SET);
+		        	HAL_GPIO_WritePin(LED_B_GPIO_Port, LED_B_Pin, GPIO_PIN_RESET);
+		        	color_turn = 0;
+					break;
+				}
+			}
 		}
 		else if (status == TX_SUCCESS)
 		{
@@ -162,7 +193,21 @@ static VOID thread_led_entry(ULONG thread_input)
 	            paused = !paused;
 	        }
 
-			printf("period = %lu ms\r\n", period_ms);
+	        if (actual_flags & KEY4_EVENT)
+	        {
+	        	/* Go to next mode */
+	        	blink_mode = blink_mode + 1;
+
+	        	if(blink_mode > BLINK_MODE_CIRCULAR)
+	        		blink_mode = BLINK_MODE_R;
+
+	        	/* Clear LEDs (Active Low) */
+	        	HAL_GPIO_WritePin(LED_R_GPIO_Port, LED_R_Pin, GPIO_PIN_SET);
+	        	HAL_GPIO_WritePin(LED_G_GPIO_Port, LED_G_Pin, GPIO_PIN_SET);
+	        	HAL_GPIO_WritePin(LED_B_GPIO_Port, LED_B_Pin, GPIO_PIN_SET);
+	        }
+
+	        printf("period = %lu ms, paused = %lu, mode = %d\r\n", period_ms, paused, blink_mode);
 		}
 	}
 }
