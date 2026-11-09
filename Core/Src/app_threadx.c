@@ -121,6 +121,8 @@ static VOID thread_led_entry(ULONG thread_input)
 	ULONG actual_flags;
 	ULONG ticks;
 	UINT status;
+	ULONG paused = 0;
+	ULONG wait_ticks;
 
 	(void)thread_input;
 
@@ -129,9 +131,13 @@ static VOID thread_led_entry(ULONG thread_input)
 		/* Convert milliseconds to ticks */
 		ticks = (period_ms * TX_TIMER_TICKS_PER_SECOND) / 1000;
 
-		/* Sleep for one period, but wake up early if Key1 or Key2 is set */
-		status = tx_event_flags_get(&key_events, KEY1_EVENT | KEY2_EVENT,
-				TX_OR_CLEAR, &actual_flags, ticks);
+	    /* While paused there is no period to wait for, only a key press */
+	    wait_ticks = paused ? TX_WAIT_FOREVER : ticks;
+
+	    /* Wait for Key1, Key2 and Key3, so Key3 can also resume */
+	    status = tx_event_flags_get(&key_events,
+	                                KEY1_EVENT | KEY2_EVENT | KEY3_EVENT,
+	                                TX_OR_CLEAR, &actual_flags, wait_ticks);
 
 		if (status == TX_NO_EVENTS)
 		{
@@ -149,6 +155,12 @@ static VOID thread_led_entry(ULONG thread_input)
 			{
 				period_ms += LED_PERIOD_STEP_MS;
 			}
+
+	        if (actual_flags & KEY3_EVENT)
+	        {
+	        	/* Pause or Continue Blinking */
+	            paused = !paused;
+	        }
 
 			printf("period = %lu ms\r\n", period_ms);
 		}
