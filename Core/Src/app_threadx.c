@@ -35,30 +35,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-//#define BLINK_RED_STACK_SIZE    2048
-//#define BLINK_RED_PRIORITY      10
-
-//#define BLINK_GREEN_STACK_SIZE    2048
-//#define BLINK_GREEN_PRIORITY      10
-
-//#define BUTTON_STACK_SIZE    2048
-//#define BUTTON_PRIORITY      10
-
-//#define KEY_STACK_SIZE       2048
-//#define KEY_PRIORITY         10
-//#define KEY_QUEUE_MSG_COUNT  8
-
-//#define PRINTF_1_STACK_SIZE       2048
-//#define PRINTF_1_PRIORITY         10
-//
-//#define PRINTF_2_STACK_SIZE       2048
-//#define PRINTF_2_PRIORITY         10
-
-#define THREAD_1_STACK_SIZE   2048
-#define THREAD_1_PRIORITY     10
-
-#define THREAD_2_STACK_SIZE   2048
-#define THREAD_2_PRIORITY     11
+#define THREAD_LED_STACK_SIZE   2048
+#define THREAD_LED_PRIORITY     10
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -68,35 +46,13 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
-//static TX_THREAD blink_red_thread;
-//static TX_THREAD blink_green_thread;
-
-//TX_SEMAPHORE button_sem;
-//static TX_THREAD button_thread;
-
-//TX_QUEUE key_queue;
-//static TX_THREAD key_thread;
-
-//static TX_THREAD printf_thread_1;
-//static TX_THREAD printf_thread_2;
-//
-//TX_MUTEX print_mutex;
-
 TX_EVENT_FLAGS_GROUP key_events;
-TX_THREAD thread_1;
-TX_THREAD thread_2;
-
+TX_THREAD thread_led;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN PFP */
-//static VOID blink_red_thread_entry(ULONG thread_input);
-//static VOID blink_green_thread_entry(ULONG thread_input);
-//static VOID button_thread_entry(ULONG thread_input);
-//static VOID key_thread_entry(ULONG thread_input);
-//static VOID printf_thread_entry(ULONG thread_input); /* Use this for both printf threads */
-static VOID thread_1_entry(ULONG thread_input);
-static VOID thread_2_entry(ULONG thread_input);
+static VOID thread_led_entry(ULONG thread_input);
 /* USER CODE END PFP */
 
 /**
@@ -112,149 +68,21 @@ UINT App_ThreadX_Init(VOID *memory_ptr)
 	CHAR *stack_ptr = TX_NULL;
 	TX_BYTE_POOL *byte_pool = (TX_BYTE_POOL *)memory_ptr;
 
-
-	/*------------------- Red -------------------*/
-//	if (tx_byte_allocate(byte_pool, (VOID **)&stack_ptr, BLINK_RED_STACK_SIZE, TX_NO_WAIT) != TX_SUCCESS)
-//	{
-//		return TX_POOL_ERROR;
-//	}
-//
-//	if (tx_thread_create(&blink_red_thread, "blink_red", blink_red_thread_entry, 0,
-//			stack_ptr, BLINK_RED_STACK_SIZE,
-//			BLINK_RED_PRIORITY, BLINK_RED_PRIORITY,
-//			TX_NO_TIME_SLICE, TX_AUTO_START) != TX_SUCCESS)
-//	{
-//		return TX_THREAD_ERROR;
-//	}
-
-	/*------------------- Green -------------------*/
-//	if (tx_byte_allocate(byte_pool, (VOID **)&stack_ptr, BLINK_GREEN_STACK_SIZE, TX_NO_WAIT) != TX_SUCCESS)
-//	{
-//		return TX_POOL_ERROR;
-//	}
-//
-//	if (tx_thread_create(&blink_green_thread, "blink_green", blink_green_thread_entry, 0,
-//			stack_ptr, BLINK_GREEN_STACK_SIZE,
-//			BLINK_GREEN_PRIORITY, BLINK_GREEN_PRIORITY,
-//			TX_NO_TIME_SLICE, TX_AUTO_START) != TX_SUCCESS)
-//	{
-//		return TX_THREAD_ERROR;
-//	}
-
-//	/*------------------- Button Semaphore -------------------*/
-//	if (tx_semaphore_create(&button_sem, "button", 0) != TX_SUCCESS)
-//	{
-//	    return TX_SEMAPHORE_ERROR;
-//	}
-
-	/*------------------- Button -------------------*/
-//	if (tx_byte_allocate(byte_pool, (VOID **)&stack_ptr, BUTTON_STACK_SIZE, TX_NO_WAIT) != TX_SUCCESS)
-//	{
-//		return TX_POOL_ERROR;
-//	}
-//
-//	if (tx_thread_create(&button_thread, "button", button_thread_entry, 0,
-//			stack_ptr, BUTTON_STACK_SIZE,
-//			BUTTON_PRIORITY, BUTTON_PRIORITY,
-//			TX_NO_TIME_SLICE, TX_AUTO_START) != TX_SUCCESS)
-//	{
-//		return TX_THREAD_ERROR;
-//	}
-
-	/*------------------- Key Queue -------------------*/
-//	VOID *queue_ptr = TX_NULL;
-//
-//	/* Allocate storage for the queue messages */
-//	if (tx_byte_allocate(byte_pool, &queue_ptr,
-//	                     KEY_QUEUE_MSG_COUNT * sizeof(ULONG), TX_NO_WAIT) != TX_SUCCESS)
-//	{
-//	    return TX_POOL_ERROR;
-//	}
-//
-//	if (tx_queue_create(&key_queue, "key_queue", TX_1_ULONG, queue_ptr,
-//	                    KEY_QUEUE_MSG_COUNT * sizeof(ULONG)) != TX_SUCCESS)
-//	{
-//	    return TX_QUEUE_ERROR;
-//	}
-//
-//	/*------------------- Key -------------------*/
-//	if (tx_byte_allocate(byte_pool, (VOID **)&stack_ptr, KEY_STACK_SIZE, TX_NO_WAIT) != TX_SUCCESS)
-//	{
-//		return TX_POOL_ERROR;
-//	}
-//
-//	if (tx_thread_create(&key_thread, "key", key_thread_entry, 0,
-//			stack_ptr, KEY_STACK_SIZE,
-//			KEY_PRIORITY, KEY_PRIORITY,
-//			TX_NO_TIME_SLICE, TX_AUTO_START) != TX_SUCCESS)
-//	{
-//		return TX_THREAD_ERROR;
-//	}
-
-//	/*------------------- Mutex for printfs -------------------*/
-//	/* TX_INHERIT enables priority inheritance */
-//	if (tx_mutex_create(&print_mutex, "print", TX_INHERIT) != TX_SUCCESS)
-//	{
-//	    return TX_MUTEX_ERROR;
-//	}
-//
-//	/*------------------- printf1 -------------------*/
-//	if (tx_byte_allocate(byte_pool, (VOID **)&stack_ptr, PRINTF_1_STACK_SIZE, TX_NO_WAIT) != TX_SUCCESS)
-//	{
-//		return TX_POOL_ERROR;
-//	}
-//
-//	if (tx_thread_create(&printf_thread_1, "printf_1", printf_thread_entry, 1,
-//			stack_ptr, PRINTF_1_STACK_SIZE,
-//			PRINTF_1_PRIORITY, PRINTF_1_PRIORITY,
-//			1, TX_AUTO_START) != TX_SUCCESS)
-//	{
-//		return TX_THREAD_ERROR;
-//	}
-//
-//	/*------------------- printf2 -------------------*/
-//	if (tx_byte_allocate(byte_pool, (VOID **)&stack_ptr, PRINTF_2_STACK_SIZE, TX_NO_WAIT) != TX_SUCCESS)
-//	{
-//		return TX_POOL_ERROR;
-//	}
-//
-//	if (tx_thread_create(&printf_thread_2, "printf_2", printf_thread_entry, 2,
-//			stack_ptr, PRINTF_2_STACK_SIZE,
-//			PRINTF_2_PRIORITY, PRINTF_2_PRIORITY,
-//			1, TX_AUTO_START) != TX_SUCCESS)
-//	{
-//		return TX_THREAD_ERROR;
-//	}
-
 	/*------------------- Event Flags -------------------*/
 	if (tx_event_flags_create(&key_events, "key_events") != TX_SUCCESS)
 	{
 	    return TX_GROUP_ERROR;
 	}
 
-	/* Thread 1 */
-	if (tx_byte_allocate(byte_pool, (VOID **)&stack_ptr, THREAD_1_STACK_SIZE, TX_NO_WAIT) != TX_SUCCESS)
+	/* Thread LED */
+	if (tx_byte_allocate(byte_pool, (VOID **)&stack_ptr, THREAD_LED_STACK_SIZE, TX_NO_WAIT) != TX_SUCCESS)
 	{
 		return TX_POOL_ERROR;
 	}
 
-	if (tx_thread_create(&thread_1, "thread_1", thread_1_entry, 0,
-			stack_ptr, THREAD_1_STACK_SIZE,
-			THREAD_1_PRIORITY, THREAD_1_PRIORITY,
-			TX_NO_TIME_SLICE, TX_AUTO_START) != TX_SUCCESS)
-	{
-		return TX_THREAD_ERROR;
-	}
-
-	/* Thread 2 */
-	if (tx_byte_allocate(byte_pool, (VOID **)&stack_ptr, THREAD_2_STACK_SIZE, TX_NO_WAIT) != TX_SUCCESS)
-	{
-		return TX_POOL_ERROR;
-	}
-
-	if (tx_thread_create(&thread_2, "thread_2", thread_2_entry, 0,
-			stack_ptr, THREAD_2_STACK_SIZE,
-			THREAD_2_PRIORITY, THREAD_2_PRIORITY,
+	if (tx_thread_create(&thread_led, "thread_led", thread_led_entry, 0,
+			stack_ptr, THREAD_LED_STACK_SIZE,
+			THREAD_LED_PRIORITY, THREAD_LED_PRIORITY,
 			TX_NO_TIME_SLICE, TX_AUTO_START) != TX_SUCCESS)
 	{
 		return TX_THREAD_ERROR;
@@ -286,159 +114,43 @@ void MX_ThreadX_Init(void)
 }
 
 /* USER CODE BEGIN 1 */
-/*------------------- Red -------------------*/
-//static VOID blink_red_thread_entry(ULONG thread_input)
-//{
-//	(void)thread_input;
-//
-//	while (1)
-//	{
-//		HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
-//		printf("ThreadX Red tick %lu\r\n", (unsigned long)tx_time_get());
-//		tx_thread_sleep(50);                     /* 50 ticks = 500 ms at 100 ticks/s */
-//	}
-//}
-
-/*------------------- Green -------------------*/
-//static VOID blink_green_thread_entry(ULONG thread_input)
-//{
-//	(void)thread_input;
-//
-//	while (1)
-//	{
-//		HAL_GPIO_TogglePin(LED_G_GPIO_Port, LED_G_Pin);
-//		printf("ThreadX Green tick %lu\r\n", (unsigned long)tx_time_get());
-//		tx_thread_sleep(100);                    /* 100 ticks = 1000 ms */
-//	}
-//}
-
-/*------------------- Button -------------------*/
-//static VOID button_thread_entry(ULONG thread_input)
-//{
-//    ULONG count = 0;
-//
-//    (void)thread_input;
-//
-//    while (1)
-//    {
-//        /* Sleep here until the ISR gives the semaphore */
-//        tx_semaphore_get(&button_sem, TX_WAIT_FOREVER);
-//
-//        count++;
-//        HAL_GPIO_TogglePin(LED_B_GPIO_Port, LED_B_Pin);
-//        printf("Button press %lu\r\n", count);
-//
-//        tx_thread_sleep(5);   /* Crude debounce: 50 ms */
-//    }
-//}
-
-/*------------------- Key -------------------*/
-//static VOID key_thread_entry(ULONG thread_input)
-//{
-//    ULONG key_id;
-//
-//    (void)thread_input;
-//
-//    while (1)
-//    {
-//        /* Sleep until the ISR sends a key number */
-//        if (tx_queue_receive(&key_queue, &key_id, TX_WAIT_FOREVER) == TX_SUCCESS)
-//        {
-//            printf("Key %lu pressed\r\n", key_id);
-//
-//            switch (key_id)
-//            {
-//                case 1:
-//                    HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
-//                    break;
-//
-//                case 2:
-//                    HAL_GPIO_TogglePin(LED_G_GPIO_Port, LED_G_Pin);
-//                    break;
-//
-//                case 3:
-//                    HAL_GPIO_TogglePin(LED_B_GPIO_Port, LED_B_Pin);
-//                    break;
-//
-//                default:
-//                    break;
-//            }
-//
-//            tx_thread_sleep(5);   /* Crude debounce: 50 ms */
-//        }
-//    }
-//}
-
-//void safe_printf(const char *fmt, ...)
-//{
-//	va_list args;
-//
-//	tx_mutex_get(&print_mutex, TX_WAIT_FOREVER);
-//
-//	va_start(args, fmt);
-//	vprintf(fmt, args);
-//	va_end(args);
-//
-//	tx_mutex_put(&print_mutex);
-//}
-//
-///*------------------- printf1 -------------------*/
-//static VOID printf_thread_entry(ULONG thread_input)
-//{
-//    ULONG n = 0;
-//
-//    while (1)
-//    {
-//        /* A long line so a time slice can expire in the middle of it */
-//    	safe_printf("Thread %lu line %lu: 0123456789 0123456789 0123456789 0123456789\r\n",
-//               thread_input, n++);
-//    }
-//}
-
 /*------------------- Event Flags -------------------*/
-static VOID thread_1_entry(ULONG thread_input)
+static VOID thread_led_entry(ULONG thread_input)
 {
+	ULONG period_ms = LED_PERIOD_DEFAULT_MS;
 	ULONG actual_flags;
+	ULONG ticks;
+	UINT status;
 
 	(void)thread_input;
 
 	while (1)
 	{
-		/* Wake up when Key1 OR Key2 is set, then clear those flags */
-		if (tx_event_flags_get(&key_events, KEY1_EVENT | KEY2_EVENT,
-				TX_OR_CLEAR, &actual_flags,
-				TX_WAIT_FOREVER) == TX_SUCCESS)
+		/* Convert milliseconds to ticks */
+		ticks = (period_ms * TX_TIMER_TICKS_PER_SECOND) / 1000;
+
+		/* Sleep for one period, but wake up early if Key1 or Key2 is set */
+		status = tx_event_flags_get(&key_events, KEY1_EVENT | KEY2_EVENT,
+				TX_OR_CLEAR, &actual_flags, ticks);
+
+		if (status == TX_NO_EVENTS)
 		{
-			if (actual_flags & KEY1_EVENT)
-			{
-				printf("Key1 event\r\n");
-			}
-
-			if (actual_flags & KEY2_EVENT)
-			{
-				printf("Key2 event\r\n");
-			}
-
+			/* Timeout: the period elapsed */
 			HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
 		}
-	}
-}
-
-static VOID thread_2_entry(ULONG thread_input)
-{
-	ULONG actual_flags;
-
-	(void)thread_input;
-
-	while (1)
-	{
-		/* Wake up only when Key3 AND Key4 are both set */
-		if (tx_event_flags_get(&key_events, KEY3_EVENT | KEY4_EVENT,
-				TX_AND_CLEAR, &actual_flags,
-				TX_WAIT_FOREVER) == TX_SUCCESS)
+		else if (status == TX_SUCCESS)
 		{
-			printf("Key3 + Key4 chord\r\n");
-			HAL_GPIO_TogglePin(LED_G_GPIO_Port, LED_G_Pin);
+			if ((actual_flags & KEY1_EVENT) && (period_ms > LED_PERIOD_MIN_MS))
+			{
+				period_ms -= LED_PERIOD_STEP_MS;
+			}
+
+			if ((actual_flags & KEY2_EVENT) && (period_ms < LED_PERIOD_MAX_MS))
+			{
+				period_ms += LED_PERIOD_STEP_MS;
+			}
+
+			printf("period = %lu ms\r\n", period_ms);
 		}
 	}
 }

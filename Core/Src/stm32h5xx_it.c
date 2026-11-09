@@ -231,17 +231,6 @@ void TIM6_IRQHandler(void)
 }
 
 /* USER CODE BEGIN 1 */
-//extern TX_SEMAPHORE button_sem;
-
-//void HAL_GPIO_EXTI_Falling_Callback(uint16_t GPIO_Pin)
-//{
-//    (void)GPIO_Pin;
-//
-//    /* Only a quick, non-blocking call is allowed inside an ISR */
-//    tx_semaphore_put(&button_sem);
-//}
-
-/* USER CODE BEGIN 1 */
 extern TX_EVENT_FLAGS_GROUP key_events;
 
 void HAL_GPIO_EXTI_Falling_Callback(uint16_t GPIO_Pin)
