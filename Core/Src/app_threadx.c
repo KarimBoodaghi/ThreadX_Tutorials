@@ -241,23 +241,27 @@ static VOID thread_led_entry(ULONG thread_input)
 			if ((actual_flags & KEY1_EVENT) && (AppState.period_ms > LED_PERIOD_MIN_MS))
 			{
 				AppState.period_ms -= LED_PERIOD_STEP_MS;
+				tx_event_flags_set(&key_events, CHANGE_EVENT, TX_OR);
 			}
 
 			if ((actual_flags & KEY2_EVENT) && (AppState.period_ms < LED_PERIOD_MAX_MS))
 			{
 				AppState.period_ms += LED_PERIOD_STEP_MS;
+				tx_event_flags_set(&key_events, CHANGE_EVENT, TX_OR);
 			}
 
 	        if (actual_flags & KEY3_EVENT)
 	        {
 	        	/* Pause or Continue Blinking */
 	        	AppState.paused = !AppState.paused;
+	        	tx_event_flags_set(&key_events, CHANGE_EVENT, TX_OR);
 	        }
 
 	        if (actual_flags & KEY4_EVENT)
 	        {
 	        	/* Go to next mode */
 	        	AppState.mode = AppState.mode + 1;
+	        	tx_event_flags_set(&key_events, CHANGE_EVENT, TX_OR);
 
 	        	if(AppState.mode > BLINK_MODE_CIRCULAR)
 	        		AppState.mode = BLINK_MODE_R;
@@ -269,8 +273,6 @@ static VOID thread_led_entry(ULONG thread_input)
 	        }
 
 	        tx_mutex_put(&state_mutex);                    /* Return the key */
-
-	        safe_printf("period = %lu ms, paused = %lu, mode = %lu\r\n", AppState.period_ms, AppState.paused, AppState.mode);
 		}
 	}
 }
@@ -279,22 +281,29 @@ static VOID thread_led_entry(ULONG thread_input)
 static VOID thread_report_entry(ULONG thread_input)
 {
 	AppState_t snapshot;
+	ULONG actual_flags;
+	UINT status;
 
 	(void)thread_input;
 
 	while (1)
 	{
-		/* Sleep for the report period */
-		tx_thread_sleep((REPORT_PERIOD_MS * TX_TIMER_TICKS_PER_SECOND) / 1000);
+		status = tx_event_flags_get(&key_events,
+				CHANGE_EVENT,
+				TX_OR_CLEAR, &actual_flags,
+				(REPORT_PERIOD_MS * TX_TIMER_TICKS_PER_SECOND) / 1000);
 
-		/* Copy the state while holding the lock, then release it */
-		tx_mutex_get(&state_mutex, TX_WAIT_FOREVER);
-		snapshot = AppState;
-		tx_mutex_put(&state_mutex);
+		if((status == TX_SUCCESS) || (status == TX_NO_EVENTS))
+		{
+			/* Copy the state while holding the lock, then release it */
+			tx_mutex_get(&state_mutex, TX_WAIT_FOREVER);
+			snapshot = AppState;
+			tx_mutex_put(&state_mutex);
 
-		/* Print without holding the state lock */
-		safe_printf("[REPORT] mode=%lu period=%lums paused=%lu\r\n",
-				snapshot.mode, snapshot.period_ms, snapshot.paused);
+			/* Print without holding the state lock */
+			safe_printf("[REPORT] mode=%lu period=%lums paused=%lu\r\n",
+					snapshot.mode, snapshot.period_ms, snapshot.paused);
+		}
 	}
 }
 /* USER CODE END 1 */
