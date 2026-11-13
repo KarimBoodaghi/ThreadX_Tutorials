@@ -35,7 +35,11 @@ extern "C" {
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
-
+typedef struct
+{
+	ULONG key_id;   /* Which key was pressed */
+	ULONG tick;     /* When it was pressed, in ticks */
+} KeyMessage_t;
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/

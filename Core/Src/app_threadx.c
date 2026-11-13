@@ -42,6 +42,10 @@
 #define THREAD_REPORT_PRIORITY     11 /* Lower priority */
 
 #define REPORT_PERIOD_MS    2000
+
+#define KEY_QUEUE_MSG_COUNT    8
+#define THREAD_KEY_STACK_SIZE   2048
+#define THREAD_KEY_PRIORITY     5
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -66,12 +70,17 @@ typedef struct
 } AppState_t;
 
 AppState_t AppState;
+
+/* Queue for print number and time of the pressed key */
+TX_QUEUE key_queue;
+TX_THREAD thread_key;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN PFP */
 static VOID thread_led_entry(ULONG thread_input);
 static VOID thread_report_entry(ULONG thread_input);
+static VOID thread_key_entry(ULONG thread_input);
 /* USER CODE END PFP */
 
 /**
@@ -132,6 +141,38 @@ UINT App_ThreadX_Init(VOID *memory_ptr)
 	{
 		return TX_THREAD_ERROR;
 	}
+
+	/*------------------- Key Queue -------------------*/
+	VOID *queue_ptr = TX_NULL;
+
+	/* Allocate storage for the queue messages */
+	if (tx_byte_allocate(byte_pool, &queue_ptr,
+	                     KEY_QUEUE_MSG_COUNT * sizeof(KeyMessage_t), TX_NO_WAIT) != TX_SUCCESS)
+	{
+	    return TX_POOL_ERROR;
+	}
+
+	if (tx_queue_create(&key_queue, "key_queue", TX_2_ULONG, queue_ptr,
+            KEY_QUEUE_MSG_COUNT * sizeof(KeyMessage_t)) != TX_SUCCESS)
+	{
+	    return TX_QUEUE_ERROR;
+	}
+
+	/*------------------- Thread Key -------------------*/
+	if (tx_byte_allocate(byte_pool, (VOID **)&stack_ptr, THREAD_KEY_STACK_SIZE, TX_NO_WAIT) != TX_SUCCESS)
+	{
+		return TX_POOL_ERROR;
+	}
+
+	if (tx_thread_create(&thread_key, "thread_key", thread_key_entry, 0,
+			stack_ptr, THREAD_KEY_STACK_SIZE,
+			THREAD_KEY_PRIORITY, THREAD_KEY_PRIORITY,
+			TX_NO_TIME_SLICE, TX_AUTO_START) != TX_SUCCESS)
+	{
+		return TX_THREAD_ERROR;
+	}
+
+
   /* USER CODE END App_ThreadX_MEM_POOL */
 
   /* USER CODE BEGIN App_ThreadX_Init */
@@ -305,5 +346,43 @@ static VOID thread_report_entry(ULONG thread_input)
 					snapshot.mode, snapshot.period_ms, snapshot.paused);
 		}
 	}
+}
+
+/*------------------- thread_key -------------------*/
+static VOID thread_key_entry(ULONG thread_input)
+{
+    KeyMessage_t msg;
+
+    (void)thread_input;
+
+    while (1)
+    {
+        /* Sleep until the ISR sends a key msg */
+        if (tx_queue_receive(&key_queue, &msg, TX_WAIT_FOREVER) == TX_SUCCESS)
+        {
+            const char *name;
+
+             switch (msg.key_id)
+             {
+             case 1:
+            	 name = "Key1";
+             break;
+             case 2:
+            	 name = "Key2";
+            	 break;
+             case 3:
+            	 name = "Key3";
+            	 break;
+             case 4:
+            	 name = "Key4";
+            	 break;
+             default:
+            	 name = "Key?";
+            	 break;
+             }
+
+             safe_printf("[KEY] %s pressed at tick=%lu\r\n", name, msg.tick);
+        }
+    }
 }
 /* USER CODE END 1 */
