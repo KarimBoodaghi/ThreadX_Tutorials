@@ -35,15 +35,28 @@ extern "C" {
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
-
+typedef struct
+{
+	ULONG key_id;   /* Which key was pressed */
+	ULONG tick;     /* When it was pressed, in ticks */
+} KeyMessage_t;
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
 /* USER CODE BEGIN EC */
-#define KEY1_EVENT    0x01
-#define KEY2_EVENT    0x02
-#define KEY3_EVENT    0x04
-#define KEY4_EVENT    0x08
+#define CHANGE_EVENT  0x01
+#define LED_EVENT     0x02
+
+#define LED_PERIOD_DEFAULT_MS    500
+#define LED_PERIOD_STEP_MS       100
+#define LED_PERIOD_MIN_MS        100
+#define LED_PERIOD_MAX_MS        2000
+
+#define BLINK_MODE_R    	0
+#define BLINK_MODE_G		1
+#define BLINK_MODE_B		2
+#define BLINK_MODE_CIRCULAR	3
+
 /* USER CODE END EC */
 
 /* Private defines -----------------------------------------------------------*/
