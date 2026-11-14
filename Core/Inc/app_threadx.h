@@ -44,11 +44,8 @@ typedef struct
 
 /* Exported constants --------------------------------------------------------*/
 /* USER CODE BEGIN EC */
-#define KEY1_EVENT    0x01
-#define KEY2_EVENT    0x02
-#define KEY3_EVENT    0x04
-#define KEY4_EVENT    0x08
-#define CHANGE_EVENT  0x10
+#define CHANGE_EVENT  0x01
+#define LED_EVENT     0x02
 
 #define LED_PERIOD_DEFAULT_MS    500
 #define LED_PERIOD_STEP_MS       100

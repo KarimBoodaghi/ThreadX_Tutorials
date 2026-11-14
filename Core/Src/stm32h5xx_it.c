@@ -235,37 +235,29 @@ extern TX_EVENT_FLAGS_GROUP key_events;
 
 void HAL_GPIO_EXTI_Falling_Callback(uint16_t GPIO_Pin)
 {
-	ULONG flag = 0;
 	KeyMessage_t msg;
 
 	switch (GPIO_Pin)
 	{
 	case Key1_Pin:
-		flag = KEY1_EVENT;
 		msg.key_id = 1;
 		break;
 
 	case Key2_Pin:
-		flag = KEY2_EVENT;
 		msg.key_id = 2;
 		break;
 
 	case Key3_Pin:
-		flag = KEY3_EVENT;
 		msg.key_id = 3;
 		break;
 
 	case Key4_Pin:
-		flag = KEY4_EVENT;
 		msg.key_id = 4;
 		break;
 
 	default:
 		return;
 	}
-
-	/* Setting flags from an ISR is allowed and never blocks */
-	tx_event_flags_set(&key_events, flag, TX_OR);
 
 	msg.tick = tx_time_get();
 	tx_queue_send(&key_queue, &msg, TX_NO_WAIT);

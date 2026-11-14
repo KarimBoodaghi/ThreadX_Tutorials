@@ -69,7 +69,7 @@ typedef struct
     ULONG paused;       /* 0 = running, 1 = paused */
 } AppState_t;
 
-AppState_t AppState;
+AppState_t AppState = { BLINK_MODE_R, LED_PERIOD_DEFAULT_MS, 0 };
 
 /* Queue for print number and time of the pressed key */
 TX_QUEUE key_queue;
@@ -217,40 +217,55 @@ void safe_printf(const char *fmt, ...)
 /*------------------- thread_led -------------------*/
 static VOID thread_led_entry(ULONG thread_input)
 {
-	AppState.period_ms = LED_PERIOD_DEFAULT_MS;
-	ULONG actual_flags;
-	ULONG ticks;
-	UINT status;
-	AppState.paused = 0;
-	ULONG wait_ticks;
-	AppState.mode = BLINK_MODE_R;
-	UINT color_turn = 0;
+    AppState_t snapshot;
+    ULONG actual_flags;
+    ULONG wait_ticks;
+    UINT status;
+    UINT color_turn = 0;
+    ULONG last_mode = BLINK_MODE_R;
 
-	(void)thread_input;
+    (void)thread_input;
 
-	while (1)
-	{
-		/* Convert milliseconds to ticks */
-		ticks = (AppState.period_ms * TX_TIMER_TICKS_PER_SECOND) / 1000;
+    while (1)
+    {
+        /* Take a stable copy of the shared state */
+        tx_mutex_get(&state_mutex, TX_WAIT_FOREVER);
+        snapshot = AppState;
+        tx_mutex_put(&state_mutex);
 
-	    /* While paused there is no period to wait for, only a key press */
-	    wait_ticks = AppState.paused ? TX_WAIT_FOREVER : ticks;
+        if (snapshot.mode != last_mode)
+        {
+            /* Turn all LEDs off here (active low), then remember the mode */
+        	HAL_GPIO_WritePin(LED_R_GPIO_Port, LED_R_Pin, GPIO_PIN_SET);
+        	HAL_GPIO_WritePin(LED_G_GPIO_Port, LED_G_Pin, GPIO_PIN_SET);
+        	HAL_GPIO_WritePin(LED_B_GPIO_Port, LED_B_Pin, GPIO_PIN_SET);
 
-	    /* Wait for Key1, Key2 and Key3, so Key3 can also resume */
-	    status = tx_event_flags_get(&key_events,
-	                                KEY1_EVENT | KEY2_EVENT | KEY3_EVENT | KEY4_EVENT,
-	                                TX_OR_CLEAR, &actual_flags, wait_ticks);
+            last_mode = snapshot.mode;
+        }
 
-		if (status == TX_NO_EVENTS)
-		{
+        /* Compute wait_ticks from snapshot.period_ms and snapshot.paused */
+        if (snapshot.paused)
+        {
+            wait_ticks = TX_WAIT_FOREVER;
+        }
+        else
+        {
+            wait_ticks = (snapshot.period_ms * TX_TIMER_TICKS_PER_SECOND) / 1000;
+        }
+
+        status = tx_event_flags_get(&key_events, LED_EVENT, TX_OR_CLEAR,
+                                    &actual_flags, wait_ticks);
+
+        if (status == TX_NO_EVENTS)
+        {
 			/* Timeout: the period elapsed */
-			if(AppState.mode == BLINK_MODE_R)
+			if(snapshot.mode == BLINK_MODE_R)
 				HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
-			else if(AppState.mode == BLINK_MODE_G)
+			else if(snapshot.mode == BLINK_MODE_G)
 				HAL_GPIO_TogglePin(LED_G_GPIO_Port, LED_G_Pin);
-			else if(AppState.mode == BLINK_MODE_B)
+			else if(snapshot.mode == BLINK_MODE_B)
 				HAL_GPIO_TogglePin(LED_B_GPIO_Port, LED_B_Pin);
-			else if(AppState.mode == BLINK_MODE_CIRCULAR)
+			else if(snapshot.mode == BLINK_MODE_CIRCULAR)
 			{
 				switch (color_turn)
 				{
@@ -274,50 +289,9 @@ static VOID thread_led_entry(ULONG thread_input)
 					break;
 				}
 			}
-		}
-		else if (status == TX_SUCCESS)
-		{
-			tx_mutex_get(&state_mutex, TX_WAIT_FOREVER);   /* Take the key */
-
-			if ((actual_flags & KEY1_EVENT) && (AppState.period_ms > LED_PERIOD_MIN_MS))
-			{
-				AppState.period_ms -= LED_PERIOD_STEP_MS;
-				tx_event_flags_set(&key_events, CHANGE_EVENT, TX_OR);
-			}
-
-			if ((actual_flags & KEY2_EVENT) && (AppState.period_ms < LED_PERIOD_MAX_MS))
-			{
-				AppState.period_ms += LED_PERIOD_STEP_MS;
-				tx_event_flags_set(&key_events, CHANGE_EVENT, TX_OR);
-			}
-
-	        if (actual_flags & KEY3_EVENT)
-	        {
-	        	/* Pause or Continue Blinking */
-	        	AppState.paused = !AppState.paused;
-	        	tx_event_flags_set(&key_events, CHANGE_EVENT, TX_OR);
-	        }
-
-	        if (actual_flags & KEY4_EVENT)
-	        {
-	        	/* Go to next mode */
-	        	AppState.mode = AppState.mode + 1;
-	        	tx_event_flags_set(&key_events, CHANGE_EVENT, TX_OR);
-
-	        	if(AppState.mode > BLINK_MODE_CIRCULAR)
-	        		AppState.mode = BLINK_MODE_R;
-
-	        	/* Clear LEDs (Active Low) */
-	        	HAL_GPIO_WritePin(LED_R_GPIO_Port, LED_R_Pin, GPIO_PIN_SET);
-	        	HAL_GPIO_WritePin(LED_G_GPIO_Port, LED_G_Pin, GPIO_PIN_SET);
-	        	HAL_GPIO_WritePin(LED_B_GPIO_Port, LED_B_Pin, GPIO_PIN_SET);
-	        }
-
-	        tx_mutex_put(&state_mutex);                    /* Return the key */
-		}
-	}
+        }
+    }
 }
-
 /*------------------- thread_report -------------------*/
 static VOID thread_report_entry(ULONG thread_input)
 {
@@ -351,38 +325,64 @@ static VOID thread_report_entry(ULONG thread_input)
 /*------------------- thread_key -------------------*/
 static VOID thread_key_entry(ULONG thread_input)
 {
-    KeyMessage_t msg;
+	KeyMessage_t msg;
+	UINT changed;
 
-    (void)thread_input;
+	(void)thread_input;
 
-    while (1)
-    {
-        /* Sleep until the ISR sends a key msg */
-        if (tx_queue_receive(&key_queue, &msg, TX_WAIT_FOREVER) == TX_SUCCESS)
-        {
-            const char *name;
+	while (1)
+	{
+		if (tx_queue_receive(&key_queue, &msg, TX_WAIT_FOREVER) == TX_SUCCESS)
+		{
+			changed = 0;
 
-             switch (msg.key_id)
-             {
-             case 1:
-            	 name = "Key1";
-             break;
-             case 2:
-            	 name = "Key2";
-            	 break;
-             case 3:
-            	 name = "Key3";
-            	 break;
-             case 4:
-            	 name = "Key4";
-            	 break;
-             default:
-            	 name = "Key?";
-            	 break;
-             }
+			tx_mutex_get(&state_mutex, TX_WAIT_FOREVER);
 
-             safe_printf("[KEY] %s pressed at tick=%lu\r\n", name, msg.tick);
-        }
-    }
+			switch (msg.key_id)
+			{
+			case 1:
+				/* Faster: decrease the period if it is above the minimum */
+				if (AppState.period_ms > LED_PERIOD_MIN_MS)
+				{
+					AppState.period_ms -= LED_PERIOD_STEP_MS;
+					changed = 1;
+				}
+				break;
+
+			case 2:
+			    /* Slower: increase the period if it is below the maximum */
+			    if (AppState.period_ms < LED_PERIOD_MAX_MS)
+			    {
+			        AppState.period_ms += LED_PERIOD_STEP_MS;
+			        changed = 1;
+			    }
+			    break;
+
+			case 3:
+				/* Pause or resume */
+				AppState.paused = !AppState.paused;
+				changed = 1;
+				break;
+
+			case 4:
+				/* Next mode, then wrap after the last one */
+				AppState.mode = AppState.mode + 1;
+	        	if(AppState.mode > BLINK_MODE_CIRCULAR)
+	        		AppState.mode = BLINK_MODE_R;
+	        	changed = 1;
+				break;
+
+			default:
+				break;
+			}
+
+			tx_mutex_put(&state_mutex);
+
+			if (changed)
+			{
+				tx_event_flags_set(&key_events, LED_EVENT | CHANGE_EVENT, TX_OR);
+			}
+		}
+	}
 }
 /* USER CODE END 1 */
