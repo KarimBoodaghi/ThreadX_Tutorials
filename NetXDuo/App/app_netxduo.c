@@ -33,7 +33,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define UDP_ECHO_PORT    5000
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -46,7 +46,7 @@ TX_THREAD      NxAppThread;
 NX_PACKET_POOL NxAppPool;
 NX_IP          NetXDuoEthIpInstance;
 /* USER CODE BEGIN PV */
-
+NX_UDP_SOCKET UdpSocket;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -195,6 +195,46 @@ static VOID nx_app_thread_entry (ULONG thread_input)
 {
   /* USER CODE BEGIN Nx_App_Thread_Entry 0 */
 
+	NX_PACKET *packet;
+	ULONG source_ip;
+	UINT source_port;
+	UINT status;
+
+	(void)thread_input;
+
+	/* Create the UDP socket on the IP instance */
+	status = nx_udp_socket_create(&NetXDuoEthIpInstance, &UdpSocket, "UDP echo socket", NX_IP_NORMAL, NX_FRAGMENT_OKAY, NX_IP_TIME_TO_LIVE, 5);
+
+	if (status != NX_SUCCESS)
+	{
+		return;
+	}
+
+	/* Bind the socket to the echo port */
+	status = nx_udp_socket_bind(&UdpSocket, UDP_ECHO_PORT, NX_WAIT_FOREVER);
+
+	if (status != NX_SUCCESS)
+	{
+		return;
+	}
+
+	while (1)
+	{
+		/* Sleep until a datagram arrives */
+		if (nx_udp_socket_receive(&UdpSocket, &packet,
+				NX_WAIT_FOREVER) == NX_SUCCESS)
+		{
+			/* Find out who sent it */
+			nx_udp_source_extract(packet, &source_ip, &source_port);
+
+			/* Send the same packet back to the sender */
+			if (nx_udp_socket_send(&UdpSocket, packet,
+					source_ip, source_port) != NX_SUCCESS)
+			{
+				nx_packet_release(packet);
+			}
+		}
+	}
   /* USER CODE END Nx_App_Thread_Entry 0 */
 
 }
